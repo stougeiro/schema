@@ -1,0 +1,20 @@
+{
+    "name": "stougeiro/schema",
+    "type": "package",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "stougeiro",
+            "email": "sidneytougeiro@gmail.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "STDW\\Schema\\": "src/"
+        }
+    },
+    "minimum-stability": "dev",
+    "require": {
+        "php": "^8.1"
+    }
+}
