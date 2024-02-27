@@ -10,7 +10,7 @@
         { }
 
 
-        public function validate(array $data, bool $strict = true): bool
+        public function isValid(array $data, bool $strict = true): bool
         {
             if ( ! $strict) {
                 goto nonstrictvalidate;
@@ -29,7 +29,7 @@
             nonstrictvalidate:
 
             foreach ($this->schema as $key => $type) {
-                if ( ! isset($data[$key]) || ! $this->verify($type, $data[$key], $strict)) {
+                if ( ! isset($data[$key]) || ! $this->match($type, $data[$key], $strict)) {
                     return false;
                 }
             }
@@ -38,10 +38,10 @@
         }
 
 
-        protected function verify(Schema|string $type, mixed $value, bool $strict): bool
+        private function match(Schema|string $type, mixed $value, bool $strict): bool
         {
             if (is_object($type) && $type instanceof Schema && is_array($value)) {
-                return $type->validate($value, $strict);
+                return $type->isValid($value, $strict);
             }
 
             return match($type) {
