@@ -13,8 +13,9 @@
         public function isValid(array $data, bool $strict = true): bool
         {
             if ( ! $strict) {
-                goto nonstrictvalidate;
+                goto nonstrictschema;
             }
+
 
             $diff = array_merge(
                 array_diff_key($this->schema, $data),
@@ -26,7 +27,7 @@
             }
 
 
-            nonstrictvalidate:
+            nonstrictschema:
 
             foreach ($this->schema as $key => $type) {
                 if ( ! isset($data[$key]) || ! $this->match($type, $data[$key], $strict)) {
