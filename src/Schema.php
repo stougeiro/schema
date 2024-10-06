@@ -30,7 +30,7 @@
             nonstrictschema:
 
             foreach ($this->schema as $key => $type) {
-                if ( ! isset($data[$key]) || ! $this->match($type, $data[$key], $strict)) {
+                if ( ! array_key_exists($key, $data) || ! $this->match($type, $data[$key], $strict)) {
                     return false;
                 }
             }
