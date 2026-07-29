@@ -28,7 +28,7 @@
          * Validate the given data against the schema.
          * 
          * @param array<int|string, mixed> $data
-         * @param string|null $error
+         * @param string|null &$error
          * @return bool
          */
         public function validate(array $data, ?string &$error = null): bool
@@ -164,7 +164,9 @@
          *
          * @param Schema|string $type
          * @param mixed $value
+         * @param string|null &$error
          * @return bool
+         * @throws LogicException
          */
         private function match(Schema|string $type, mixed $value, ?string &$error = null): bool
         {
