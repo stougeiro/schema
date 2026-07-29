@@ -102,17 +102,17 @@ $schema->validate($payload); // true
 use STDW\Schema\Schema;
 
 $schema = new Schema([
-    'name' => 'string',
-    'age'  => 'int',
+  'name' => 'string',
+  'age'  => 'int',
 ]);
 
 $payload = [
-    'name' => 'Sidney',
-    'age'  => '12',
+  'name' => 'Sidney',
+  'age'  => '12',
 ];
 
 if ( ! $schema->validate($payload, $error)) {
-    echo $error; // Invalid required [age]: expected [int], got ['12' (string)]
+  echo $error; // Invalid required [age]: expected [int], got ['12' (string)]
 }
 ```
 
@@ -138,7 +138,7 @@ $payload = [
 ];
 
 if ( ! $schema->validate($payload, $error)) {
-    echo $error; // Invalid required [user.id]: expected [int], got ['12' (string)]
+  echo $error; // Invalid required [user.id]: expected [int], got ['12' (string)]
 }
 ```
 
