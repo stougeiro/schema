@@ -9,6 +9,10 @@
     {
         private bool $optional = false;
 
+        /**
+         * @var list<string> */
+        private static array $context = [];
+
 
         /**
          * Create a new schema instance.
@@ -85,20 +89,50 @@
                         return false;
                     }
 
-                    if ( ! $this->match($type, $data[$key])) {
+                    if (is_object($type)) {
+                        self::$context[] = $key;
+                    }
+
+                    $valid = $this->match($type, $data[$key], $required_error);
+
+                    $context = implode('.', self::$context);
+                    $fullKey = empty($context) ? $key : "{$context}.{$key}";
+
+                    if (is_object($type)) {
+                        array_pop(self::$context);
+                    }
+
+                    if ( ! $valid) {
                         $expected = is_object($type) ? 'Schema' : $type;
                         $received = $this->getType($data[$key]);
-                        $error = "Invalid required [{$key}]: expected [{$expected}], got [{$received}]";
+                        $error = $required_error ?? "Invalid required [{$fullKey}]: expected [{$expected}], got [{$received}]";
 
                         return false;
                     }
                 }
 
                 foreach ($optional as $key => $type) {
-                    if (array_key_exists($key, $data) && ! $this->match($type, $data[$key])) {
+                    if ( ! array_key_exists($key, $data)) {
+                        continue;
+                    }
+
+                    if (is_object($type)) {
+                        self::$context[] = $key;
+                    }
+
+                    $valid = $this->match($type, $data[$key], $optional_error);
+
+                    $context = implode('.', self::$context);
+                    $fullKey = empty($context) ? $key : "{$context}.{$key}";
+
+                    if (is_object($type)) {
+                        array_pop(self::$context);
+                    }
+
+                    if ( ! $valid) {
                         $expected = is_object($type) ? 'Schema' : $type;
                         $received = $this->getType($data[$key]);
-                        $error = "Invalid optional [{$key}]: expected [{$expected}], got [{$received}]";
+                        $error = $optional_error ?? "Invalid optional [{$fullKey}]: expected [{$expected}], got [{$received}]";
 
                         return false;
                     }
@@ -132,32 +166,36 @@
          * @param mixed $value
          * @return bool
          */
-        private function match(Schema|string $type, mixed $value): bool
+        private function match(Schema|string $type, mixed $value, ?string &$error = null): bool
         {
-            /** @var Schema|string $type */
+            /**
+             * @var Schema|string $type */
+
             if ($type instanceof Schema) {
                 if ( ! is_array($value)) {
                     return false;
                 }
 
-                /** @var array<int|string, mixed> $value */
-                return $type->validate($value);
+                /**
+                 * @var array<int|string, mixed> $value */
+                return $type->validate($value, $error);
             }
 
-            /** @var string $type */
-            if (str_starts_with($type, '?')) {
-                /** @var mixed $value */
-                if (is_null($value)) {
-                    return true;
-                }
+            /**
+             * @var string $type */
 
+            $isNullable = str_starts_with($type, '?');
+
+            if ($isNullable) {
                 $type = substr($type, 1);
             }
 
+
             if (str_starts_with($type, 'const(') && str_ends_with($type, ')')) {
                 $content = substr($type, 6, -1);
+                $result = (trim($content) !== '' && $value == $content);
 
-                return $content !== '' && $value == $content;
+                return $isNullable ? (is_null($value) || $result) : $result;
             }
 
             if (str_starts_with($type, 'enum(') && str_ends_with($type, ')')) {
@@ -170,16 +208,19 @@
                 $separator = str_contains($content, '|') ? '|' : ',';
                 $options = array_map('trim', explode($separator, $content));
 
-                $normalizedValue = is_numeric($value) ? (string) $value : $value;
-                $normalizedOptions = array_map(
-                    fn($option) => is_numeric($option) ? (string) $option : $option,
-                    $options
-                );
+                if (in_array('', $options, true)) {
+                    throw new LogicException("Invalid enum definition: '{$type}' contains empty values");
+                }
 
-                return in_array($normalizedValue, $normalizedOptions);
+                $normalizedValue = is_numeric($value) ? (string) $value : $value;
+                $normalizedOptions = array_map(fn($option) => is_numeric($option) ? (string) $option : $option, $options);
+                $result = in_array($normalizedValue, $normalizedOptions);
+
+                return $isNullable ? (is_null($value) || $result) : $result;
             }
 
-            return match($type) {
+
+            $result = match($type) {
                 'null'     => is_null($value),
                 'bool'     => is_bool($value) || in_array($value, [0, 1, '0', '1', 'true', 'false'], true),
                 'string'   => is_string($value),
@@ -193,6 +234,8 @@
 
                 default => throw new LogicException("Unknown validation type: '{$type}'")
             };
+
+            return $isNullable ? (is_null($value) || $result) : $result;
         }
 
         /**
