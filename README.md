@@ -93,6 +93,55 @@ $payload = [
 $schema->validate($payload); // true
 ```
 
+
+## 🔥 Error Handling
+
+`Schema::validate()` accepts an optional second parameter by reference that will contain the first validation error message when the payload is invalid:
+
+```php
+use STDW\Schema\Schema;
+
+$schema = new Schema([
+    'name' => 'string',
+    'age'  => 'int',
+]);
+
+$payload = [
+    'name' => 'Sidney',
+    'age'  => '12',
+];
+
+if (! $schema->validate($payload, $error)) {
+    echo $error;
+    // Invalid required [age]: expected [int], got ['12' (string)]
+}
+```
+
+When using nested schemas, the error message includes the full path to the failing field:
+
+```php
+$schema = new Schema([
+    'user' => new Schema([
+        'id'    => 'int',
+        'name'  => 'string',
+        'email' => 'string',
+    ]),
+]);
+
+$payload = [
+    'user' => [
+        'id'    => '12',
+        'name'  => 'Sidney',
+        'email' => 'sidney@example.com',
+    ],
+];
+
+if (! $schema->validate($payload, $error)) {
+    echo $error;
+    // Invalid required [user.id]: expected [int], got ['12' (string)]
+}
+```
+
 ---
 
 ## 🧠 Why Schema?
