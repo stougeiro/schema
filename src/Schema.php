@@ -2,52 +2,186 @@
 
     namespace STDW\Schema;
 
+    use LogicException;
+
 
     final class Schema
     {
+        private bool $optional = false;
+
+
+        /**
+         * Create a new schema instance.
+         * 
+         * @param array<string, mixed> $schema
+         */
         public function __construct(
-            protected array $schema)
+            private array $schema )
         { }
 
 
-        public function validate(array $data, bool $strict = true): bool
+        /**
+         * Validate the given data against the schema.
+         * 
+         * @param array<int|string, mixed> $data
+         * @param string|null $error
+         * @return bool
+         */
+        public function validate(array $data, ?string &$error = null): bool
         {
-            if ( ! $strict) {
-                goto nonstrictschema;
-            }
+            $optional = [];
+            $required = [];
+            $collection = [];
+
+            /**
+             * @var string $key
+             * @var mixed $type
+             */
+            foreach ($this->schema as $key => $type) {
+                if (is_object($type)) {
+                    if ( ! $type instanceof Schema) {
+                        $error = "Invalid object [{$key}]: expected [Schema], got [" . get_class($type) . "]";
+
+                        return false;
+                    }
+
+                    ($type->optional === true)
+                        ? $optional[$key] = $type
+                        : $required[$key] = $type;
+
+                    $collection[] = $key;
+
+                    continue;
+                }
+
+                if (is_string($type)) {
+                    (str_ends_with($type, ':o'))
+                        ? $optional[$key] = substr($type, 0, -2)
+                        : $required[$key] = $type;
+
+                    $collection[] = $key;
+
+                    continue;
+                }
 
 
-            $diff = array_merge(
-                array_diff_key($this->schema, $data),
-                array_diff_key($data, $this->schema)
-            );
+                $error = "Invalid type [{$key}]: expected [string|Schema], got [" . get_debug_type($type) . "]";
 
-            if (count($diff)) {
                 return false;
             }
 
+            if ($diff = array_diff( array_keys($data), $collection)) {
+                $list = implode(', ', $diff);
+                $error = "Unexpected fields: [{$list}]";
 
-            nonstrictschema:
+                return false;
+            }
 
-            foreach ($this->schema as $key => $type) {
-                if ( ! array_key_exists($key, $data) || ! $this->match($type, $data[$key], $strict)) {
-                    return false;
+            try {
+                foreach ($required as $key => $type) {
+                    if ( ! array_key_exists($key, $data)) {
+                        $error = "Missing required: {$key}";
+
+                        return false;
+                    }
+
+                    if ( ! $this->match($type, $data[$key])) {
+                        $expected = is_object($type) ? 'Schema' : $type;
+                        $received = $this->getType($data[$key]);
+                        $error = "Invalid required [{$key}]: expected [{$expected}], got [{$received}]";
+
+                        return false;
+                    }
                 }
+
+                foreach ($optional as $key => $type) {
+                    if (array_key_exists($key, $data) && ! $this->match($type, $data[$key])) {
+                        $expected = is_object($type) ? 'Schema' : $type;
+                        $received = $this->getType($data[$key]);
+                        $error = "Invalid optional [{$key}]: expected [{$expected}], got [{$received}]";
+
+                        return false;
+                    }
+                }
+            } catch(LogicException $e) {
+                $error = $e->getMessage();
+
+                return false;
             }
 
             return true;
         }
 
-
-        private function match(Schema|string $type, mixed $value, bool $strict): bool
+        /**
+         * Mark this schema as optional.
+         *
+         * @return Schema
+         */
+        public function optional(): Schema
         {
-            if (is_object($type) && $type instanceof Schema && is_array($value)) {
-                return $type->validate($value, $strict);
+            $this->optional = true;
+
+            return $this;
+        }
+
+
+        /**
+         * Match the given value against the type.
+         *
+         * @param Schema|string $type
+         * @param mixed $value
+         * @return bool
+         */
+        private function match(Schema|string $type, mixed $value): bool
+        {
+            /** @var Schema|string $type */
+            if ($type instanceof Schema) {
+                if ( ! is_array($value)) {
+                    return false;
+                }
+
+                /** @var array<int|string, mixed> $value */
+                return $type->validate($value);
+            }
+
+            /** @var string $type */
+            if (str_starts_with($type, '?')) {
+                /** @var mixed $value */
+                if (is_null($value)) {
+                    return true;
+                }
+
+                $type = substr($type, 1);
+            }
+
+            if (str_starts_with($type, 'const(') && str_ends_with($type, ')')) {
+                $content = substr($type, 6, -1);
+
+                return $content !== '' && $value == $content;
+            }
+
+            if (str_starts_with($type, 'enum(') && str_ends_with($type, ')')) {
+                $content = substr($type, 5, -1);
+
+                if ($content === '' || is_bool($value)) {
+                    return false;
+                }
+
+                $separator = str_contains($content, '|') ? '|' : ',';
+                $options = array_map('trim', explode($separator, $content));
+
+                $normalizedValue = is_numeric($value) ? (string) $value : $value;
+                $normalizedOptions = array_map(
+                    fn($option) => is_numeric($option) ? (string) $option : $option,
+                    $options
+                );
+
+                return in_array($normalizedValue, $normalizedOptions);
             }
 
             return match($type) {
                 'null'     => is_null($value),
-                'bool'     => is_bool($value),
+                'bool'     => is_bool($value) || in_array($value, [0, 1, '0', '1', 'true', 'false'], true),
                 'string'   => is_string($value),
                 'int'      => is_int($value),
                 'float'    => is_float($value),
@@ -55,23 +189,27 @@
                 'object'   => is_object($value),
                 'resource' => is_resource($value),
                 'callable' => is_callable($value),
+                'list'     => is_array($value) && array_is_list($value),
 
-                'list'     => $this->is_list($value),
-
-                '?string'  => is_null($value) || is_string($value),
-                '?int'     => is_null($value) || is_int($value),
-                '?float'   => is_null($value) || is_float($value),
-                '?array'   => is_null($value) || is_array($value),
-                '?object'  => is_null($value) || is_object($value),
-
-                '?list'    => is_null($value) || $this->is_list($value),
-
-                default => false
+                default => throw new LogicException("Unknown validation type: '{$type}'")
             };
         }
 
-        private function is_list(array $array): bool
+        /**
+         * Get the type of the given value.
+         *
+         * @param mixed $value
+         * @return string
+         */
+        private function getType(mixed $value): string
         {
-            return is_array($array) && array_is_list($array);
+            if (is_null($value)) return 'null';
+            if (is_bool($value)) return $value ? 'true (bool)' : 'false (bool)';
+            if (is_string($value)) return "'{$value}' (string)";
+            if (is_numeric($value)) return "{$value} (number)";
+            if (is_array($value)) return 'Array';
+            if (is_object($value)) return 'Object('. get_class($value) .')';
+
+            return gettype($value);
         }
     }
