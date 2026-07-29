@@ -111,9 +111,8 @@ $payload = [
     'age'  => '12',
 ];
 
-if (! $schema->validate($payload, $error)) {
-    echo $error;
-    // Invalid required [age]: expected [int], got ['12' (string)]
+if ( ! $schema->validate($payload, $error)) {
+    echo $error; // Invalid required [age]: expected [int], got ['12' (string)]
 }
 ```
 
@@ -121,24 +120,25 @@ When using nested schemas, the error message includes the full path to the faili
 
 ```php
 $schema = new Schema([
-    'user' => new Schema([
-        'id'    => 'int',
-        'name'  => 'string',
-        'email' => 'string',
-    ]),
+  'template' => 'enum(user|product|payment)',
+  'user' => new Schema([
+    'id'    => 'int',
+    'name'  => 'string',
+    'email' => 'string',
+  ]),
 ]);
 
 $payload = [
-    'user' => [
-        'id'    => '12',
-        'name'  => 'Sidney',
-        'email' => 'sidney@example.com',
-    ],
+  'template' => 'user',
+  'user' => [
+    'id'    => '12',
+    'name'  => 'Sidney',
+    'email' => 'sidney@example.com',
+  ],
 ];
 
-if (! $schema->validate($payload, $error)) {
-    echo $error;
-    // Invalid required [user.id]: expected [int], got ['12' (string)]
+if ( ! $schema->validate($payload, $error)) {
+    echo $error; // Invalid required [user.id]: expected [int], got ['12' (string)]
 }
 ```
 
