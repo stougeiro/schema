@@ -178,4 +178,4 @@ validating structured data in PHP without unnecessary complexity.
 
 <br><br>
 
-[<img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" width="170"/>](https://www.buymeacoffee.com/seuusuario)
+[<img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" width="170"/>](https://www.buymeacoffee.com/stougeiro)
