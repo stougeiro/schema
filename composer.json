@@ -30,6 +30,12 @@
         "issues": "https://github.com/stougeiro/schema/issues",
         "source": "https://github.com/stougeiro/schema"
     },
+    "funding": [
+        {
+            "type": "buymeacoffee",
+            "url": "https://www.buymeacoffee.com/seuusuario"
+        }
+    ],
     "autoload": {
         "psr-4": {
             "STDW\\Schema\\": "src/",
