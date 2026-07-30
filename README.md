@@ -175,7 +175,7 @@ Schema is built for developers who value:
 
 Schema aims to be a small, expressive and reliable tool that solves one problem extremely well:
 validating structured data in PHP without unnecessary complexity.
-  
-  
-  
-[<img src="https://cdn.buymeacoffee.com/assets/img/home-page-v3/bmc-new-logo.png" width="70"/>](https://www.buymeacoffee.com/seuusuario)
+
+<br><br>
+
+[<img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" width="170"/>](https://www.buymeacoffee.com/seuusuario)
