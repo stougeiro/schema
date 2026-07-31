@@ -1,7 +1,7 @@
 {
     "name": "stougeiro/schema",
     "description": "A lightweight foundation for defining and validating structured schemas in PHP.",
-    "type": "package",
+    "type": "library",
     "minimum-stability": "stable",
     "prefer-stable": true,
     "license": "MIT",
@@ -33,7 +33,7 @@
     "funding": [
         {
             "type": "buymeacoffee",
-            "url": "https://www.buymeacoffee.com/seuusuario"
+            "url": "https://www.buymeacoffee.com/stougeiro"
         }
     ],
     "autoload": {
