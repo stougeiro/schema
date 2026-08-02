@@ -68,17 +68,23 @@ $schema->validate($payload); // true
 ### Complex validation
 
 ```php
-use STDW\Schema\Schema;
+/**
+ * Using the global schema() helper (optional)
+ * 
+ * For convenience, you may use the global schema() helper
+ * instead of instantiating Schema manually.
+ * It behaves exactly the same, but makes nested definitions easier to read
+ * */
 
-$schema = new Schema([
+$schema = schema([
   'id' => 'int',
   'name' => 'string',
   'email' => 'string',
   'status' => 'enum(active|inactive|pending)',
-  'metadata' => (new Schema([
+  'metadata' => schema([
     'ip' => 'string',
     'userAgent' => 'string:o',
-  ]))->optional(),
+  ])->optional(),
 ]);
 
 $payload = [
