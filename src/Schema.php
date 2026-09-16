@@ -219,7 +219,7 @@
 
             if (str_starts_with($type, 'enum(') && str_ends_with($type, ')')) {
                 if ( ! isset(self::$cache[$type])) {
-                    $content = trim( substr($type, 6, -1));
+                    $content = trim( substr($type, 5, -1));
 
                     if ($content === '') {
                         self::$cache[$type] = [];
