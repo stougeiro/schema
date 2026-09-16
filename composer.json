@@ -41,7 +41,7 @@
             "STDW\\Schema\\": "src/"
         },
         "files": [
-            "src/functions.php"
+            "src/helper.php"
         ]
     },
     "require": {
