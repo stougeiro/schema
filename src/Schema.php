@@ -227,6 +227,8 @@
                 'string'   => is_string($value),
                 'int'      => is_int($value),
                 'float'    => is_float($value),
+                'number'   => is_int($value) && is_float($value),
+                'numeric'  => is_numeric($value),
                 'array'    => is_array($value),
                 'object'   => is_object($value),
                 'resource' => is_resource($value),
