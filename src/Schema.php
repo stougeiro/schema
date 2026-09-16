@@ -68,7 +68,6 @@
                     continue;
                 }
 
-
                 $error = "Invalid type [{$key}]: expected [string|Schema], got [" . get_debug_type($type) . "]";
 
                 return false;
@@ -170,21 +169,21 @@
          */
         private function match(Schema|string $type, mixed $value, ?string &$error = null): bool
         {
-            /**
-             * @var Schema|string $type */
+            /** @var Schema|string $type
+             */
 
             if ($type instanceof Schema) {
                 if ( ! is_array($value)) {
                     return false;
                 }
 
-                /**
-                 * @var array<int|string, mixed> $value */
+                /** @var array<int|string, mixed> $value
+                 */
                 return $type->validate($value, $error);
             }
 
-            /**
-             * @var string $type */
+            /** @var string $type
+             */
 
             $isNullable = str_starts_with($type, '?');
 
@@ -195,7 +194,7 @@
 
             if (str_starts_with($type, 'const(') && str_ends_with($type, ')')) {
                 $content = substr($type, 6, -1);
-                $result = (trim($content) !== '' && $value == $content);
+                $result = (trim($content) !== '' && $value === $content);
 
                 return $isNullable ? (is_null($value) || $result) : $result;
             }
