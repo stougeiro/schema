@@ -9,8 +9,8 @@
     {
         private bool $optional = false;
 
-        /**
-         * @var list<string> */
+        /** @var list<string>
+         */
         private static array $context = [];
 
 

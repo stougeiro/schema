@@ -1,3 +1,6 @@
+# VSCode
+/.devcontainer/
+
 # Composer
 /vendor/
 composer.lock
