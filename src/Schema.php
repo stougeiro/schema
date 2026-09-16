@@ -5,24 +5,20 @@
     use LogicException;
 
 
-    final class Schema
+    class Schema
     {
         /** @var array<int, mixed>
          */
-        private const BOOL_COERCION = [0, 1, '0', '1', 'true', 'false'];
+        protected const BOOL_COERCION = [0, 1, '0', '1', 'true', 'false'];
 
-
-        /** @var bool
-         */
-        private bool $optional = false;
-
-        /** @var list<string>
-         */
-        private static array $context = [];
 
         /** @var array<string, mixed>
          */
-        private static array $cache = [];
+        protected static array $cache = [];
+
+        /** @var bool
+         */
+        protected bool $optional = false;
 
 
         /**
@@ -44,11 +40,37 @@
          */
         public function validate(array $data, ?string &$error = null): bool
         {
+            return $this->doValidate($data, $error, '');
+        }
+
+        /**
+         * Mark this schema as optional.
+         *
+         * @return Schema
+         */
+        public function optional(): Schema
+        {
+            $this->optional = true;
+
+            return $this;
+        }
+
+
+        /**
+         * @param array<int|string, mixed> $data
+         * @param null|string &$error 
+         * @param string $context 
+         * @return bool 
+         */
+        protected function doValidate(array $data, ?string &$error, string $context): bool
+        {
             $optional = [];
             $required = [];
             $collection = [];
 
             /**
+             * Classification
+             * 
              * @var string $key
              * @var mixed $type
              */
@@ -84,13 +106,21 @@
                 return false;
             }
 
+            /**
+             * Validation: Unexpected fields
+             */
             if ($diff = array_diff_key($data, $collection)) {
                 $error = "Unexpected fields: [" . implode(', ', array_keys($diff)) . "]";
 
                 return false;
             }
 
+            /**
+             * Validation
+             */
             try {
+                /** Required fields
+                 */
                 foreach ($required as $key => $type) {
                     if ( ! array_key_exists($key, $data)) {
                         $error = "Missing required: {$key}";
@@ -101,27 +131,28 @@
                     $isSchema = is_object($type);
 
                     if ($isSchema) {
-                        self::$context[] = $key;
+                        /** @var array<int|string, mixed> $childData */
+                        $childData = $data[$key];
+                        $childContext = ($context === '') ? $key : "{$context}.{$key}";
+
+                        $valid = $type->doValidate($childData, $error, $childContext);
+                    } else {
+                        $valid = $this->match($type, $data[$key]);
                     }
 
-                    $valid = $this->match($type, $data[$key], $required_error);
-
                     if ( ! $valid) {
-                        $context = implode('.', self::$context);
-                        $fullKey = empty($context) ? $key : "{$context}.{$key}";
-
-                        $expected = $isSchema ? 'Schema' : $type;
-                        $received = $this->getType($data[$key]);
-                        $error = $required_error ?? "Invalid required [{$fullKey}]: expected [{$expected}], got [{$received}]";
+                        if ( ! $isSchema) {
+                            $fullKey = ($context === '') ? $key : "{$context}.{$key}";
+                            $received = $this->getType($data[$key]);
+                            $error = "Invalid required [{$fullKey}]: expected [{$type}], got [{$received}]";
+                        }
 
                         return false;
                     }
-
-                    if ($isSchema) {
-                        array_pop(self::$context);
-                    }
                 }
 
+                /** Optional fields
+                 */
                 foreach ($optional as $key => $type) {
                     if ( ! array_key_exists($key, $data)) {
                         continue;
@@ -130,27 +161,26 @@
                     $isSchema = is_object($type);
 
                     if ($isSchema) {
-                        self::$context[] = $key;
+                        /** @var array<int|string, mixed> $childData */
+                        $childData = $data[$key];
+                        $childContext = ($context === '') ? $key : "{$context}.{$key}";
+
+                        $valid = $type->doValidate($childData, $error, $childContext);
+                    } else {
+                        $valid = $this->match($type, $data[$key]);
                     }
 
-                    $valid = $this->match($type, $data[$key], $optional_error);
-
                     if ( ! $valid) {
-                        $context = implode('.', self::$context);
-                        $fullKey = empty($context) ? $key : "{$context}.{$key}";
-
-                        $expected = $isSchema ? 'Schema' : $type;
-                        $received = $this->getType($data[$key]);
-                        $error = $optional_error ?? "Invalid optional [{$fullKey}]: expected [{$expected}], got [{$received}]";
+                        if ( ! $isSchema) {
+                            $fullKey = ($context === '') ? $key : "{$context}.{$key}";
+                            $received = $this->getType($data[$key]);
+                            $error = "Invalid optional [{$fullKey}]: expected [{$type}], got [{$received}]";
+                        }
 
                         return false;
                     }
-
-                    if ($isSchema) {
-                        array_pop(self::$context);
-                    }
                 }
-            } catch(LogicException $e) {
+            } catch (LogicException $e) {
                 $error = $e->getMessage();
 
                 return false;
@@ -160,45 +190,15 @@
         }
 
         /**
-         * Mark this schema as optional.
-         *
-         * @return Schema
-         */
-        public function optional(): Schema
-        {
-            $this->optional = true;
-
-            return $this;
-        }
-
-
-        /**
          * Match the given value against the type.
          *
-         * @param Schema|string $type
+         * @param string $type
          * @param mixed $value
-         * @param string|null &$error
          * @return bool
          * @throws LogicException
          */
-        private function match(Schema|string $type, mixed $value, ?string &$error = null): bool
+        protected function match(string $type, mixed $value): bool
         {
-            /** @var Schema|string $type
-             */
-
-            if ($type instanceof Schema) {
-                if ( ! is_array($value)) {
-                    return false;
-                }
-
-                /** @var array<int|string, mixed> $value
-                 */
-                return $type->validate($value, $error);
-            }
-
-            /** @var string $type
-             */
-
             $isNullable = str_starts_with($type, '?');
 
             if ($isNullable) {
@@ -238,8 +238,7 @@
                     }
                 }
 
-                /** @var array<string> $options
-                 */
+                /** @var array<string> $options */
                 $options = self::$cache[$type];
 
                 if ($options === [] || is_bool($value)) {
@@ -279,7 +278,7 @@
          * @param mixed $value
          * @return string
          */
-        private function getType(mixed $value): string
+        protected function getType(mixed $value): string
         {
             if (is_null($value)) return 'null';
             if (is_bool($value)) return $value ? 'true (bool)' : 'false (bool)';
