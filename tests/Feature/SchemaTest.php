@@ -253,3 +253,85 @@ it('validates a realistic API payload', function () {
 
     expect($schema->validate($payload))->toBeTrue();
 });
+
+
+//
+// 12. API Payload with boolean
+//
+
+it('validates API payload with boolean field', function () {
+    $schema = new Schema([
+        'id'     => 'int',
+        'name'   => 'string',
+        'active' => 'boolean',
+    ]);
+
+    $payload = ['id' => 1, 'name' => 'Test', 'active' => true];
+    expect($schema->validate($payload))->toBeTrue();
+
+    $payload = ['id' => 1, 'name' => 'Test', 'active' => false];
+    expect($schema->validate($payload))->toBeTrue();
+
+    $payload = ['id' => 1, 'name' => 'Test', 'active' => 1];
+    expect($schema->validate($payload))->toBeFalse();
+});
+
+
+//
+// 13. API Payload with numeric fields
+//
+
+it('validates API payload with numeric fields', function () {
+    $schema = new Schema([
+        'price'    => 'number',
+        'quantity' => 'numeric',
+    ]);
+
+    $payload = ['price' => 10, 'quantity' => 5];
+    expect($schema->validate($payload))->toBeTrue();
+
+    $payload = ['price' => 10, 'quantity' => '5'];
+    expect($schema->validate($payload))->toBeTrue();
+
+    $payload = ['price' => '10', 'quantity' => 5];
+    expect($schema->validate($payload))->toBeFalse();
+});
+
+
+//
+// 14. Deeply nested error path
+//
+
+it('validates deeply nested payload with error path', function () {
+    $schema = new Schema([
+        'company' => new Schema([
+            'address' => new Schema([
+                'zip' => 'string',
+            ]),
+        ]),
+    ]);
+
+    $payload = ['company' => ['address' => ['zip' => 123]]];
+
+    $schema->validate($payload, $error);
+
+    expect($error)->toBe("Invalid required [company.address.zip]: expected [string], got [123 (int)]");
+});
+
+
+//
+// 15. Multiple unexpected fields in real payload
+//
+
+it('shows all unexpected fields in error', function () {
+    $schema = new Schema([
+        'id'   => 'int',
+        'name' => 'string',
+    ]);
+
+    $payload = ['id' => 1, 'name' => 'Test', 'extra1' => 'x', 'extra2' => 'y'];
+
+    $schema->validate($payload, $error);
+
+    expect($error)->toBe('Unexpected fields: [extra1, extra2]');
+});

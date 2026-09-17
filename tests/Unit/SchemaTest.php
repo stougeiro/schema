@@ -461,3 +461,116 @@
 
         expect($error)->toBe('Invalid type [x]: expected [string|Schema], got [int]');
     });
+
+
+    //
+    // 20. boolean (strict)
+    //
+
+    it('validates boolean type (strict)', function () {
+        $schema = new Schema(['active' => 'boolean']);
+
+        expect($schema->validate(['active' => true]))->toBeTrue();
+        expect($schema->validate(['active' => false]))->toBeTrue();
+        expect($schema->validate(['active' => 1]))->toBeFalse();
+        expect($schema->validate(['active' => 0]))->toBeFalse();
+        expect($schema->validate(['active' => 'true']))->toBeFalse();
+        expect($schema->validate(['active' => 'false']))->toBeFalse();
+        expect($schema->validate(['active' => '1']))->toBeFalse();
+    });
+
+
+    //
+    // 21. number
+    //
+
+    it('validates number type', function () {
+        $schema = new Schema(['value' => 'number']);
+
+        expect($schema->validate(['value' => 10]))->toBeTrue();
+        expect($schema->validate(['value' => 3.14]))->toBeTrue();
+        expect($schema->validate(['value' => 0]))->toBeTrue();
+        expect($schema->validate(['value' => -5]))->toBeTrue();
+        expect($schema->validate(['value' => '10']))->toBeFalse();
+        expect($schema->validate(['value' => '3.14']))->toBeFalse();
+        expect($schema->validate(['value' => true]))->toBeFalse();
+    });
+
+
+    //
+    // 22. numeric
+    //
+
+    it('validates numeric type', function () {
+        $schema = new Schema(['value' => 'numeric']);
+
+        expect($schema->validate(['value' => 10]))->toBeTrue();
+        expect($schema->validate(['value' => 3.14]))->toBeTrue();
+        expect($schema->validate(['value' => 0]))->toBeTrue();
+        expect($schema->validate(['value' => '10']))->toBeTrue();
+        expect($schema->validate(['value' => '3.14']))->toBeTrue();
+        expect($schema->validate(['value' => '1e2']))->toBeTrue();
+        expect($schema->validate(['value' => '-5.5']))->toBeTrue();
+        expect($schema->validate(['value' => 'abc']))->toBeFalse();
+        expect($schema->validate(['value' => true]))->toBeFalse();
+        expect($schema->validate(['value' => []]))->toBeFalse();
+    });
+
+
+    //
+    // 23. Nullable const
+    //
+
+    it('validates nullable const', function () {
+        $schema = new Schema(['role' => '?const(admin)']);
+
+        expect($schema->validate(['role' => null]))->toBeTrue();
+        expect($schema->validate(['role' => 'admin']))->toBeTrue();
+        expect($schema->validate(['role' => 'user']))->toBeFalse();
+    });
+
+
+    //
+    // 24. Nullable enum
+    //
+
+    it('validates nullable enum', function () {
+        $schema = new Schema(['status' => '?enum(active|inactive)']);
+
+        expect($schema->validate(['status' => null]))->toBeTrue();
+        expect($schema->validate(['status' => 'active']))->toBeTrue();
+        expect($schema->validate(['status' => 'inactive']))->toBeTrue();
+        expect($schema->validate(['status' => 'invalid']))->toBeFalse();
+    });
+
+
+    //
+    // 25. Multiple unexpected fields
+    //
+
+    it('rejects multiple unexpected fields', function () {
+        $schema = new Schema(['name' => 'string']);
+
+        $schema->validate(['name' => 'Sid', 'extra1' => 1, 'extra2' => 2], $error);
+
+        expect($error)->toBe('Unexpected fields: [extra1, extra2]');
+    });
+
+
+    //
+    // 26. Deep nested error path
+    //
+
+    it('produces deep nested error path', function () {
+        $schema = new Schema([
+            'a' => new Schema([
+                'b' => new Schema([
+                    'c' => 'int',
+                ]),
+            ]),
+        ]);
+
+        $schema->validate(['a' => ['b' => ['c' => 'not-int']]], $error);
+
+        expect($error)->toBe("Invalid required [a.b.c]: expected [int], got ['not-int' (string)]");
+    });
