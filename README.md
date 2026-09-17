@@ -33,8 +33,10 @@ Validates the shape before business logic validates the content.
 - **Enum & Const validation**  
   `enum(a|b|c)` and `const(value)`.
 
-- **Strict type matching**  
-  Supports: `string`, `int`, `float`, `bool`, `array`, `object`, `list`, `null`.
+- **Strict type matching**:  
+  Supports: `string`, `int`, `float`, `number`, `numeric`,  
+  `bool`, `boolean`, `array`, `list`, `object`, `null`,  
+  `resource`, `callable`, `enum(a|b|c)`, `const(value)`.
 
 - **Zero dependencies**  
   Pure PHP. No magic. No framework coupling.
@@ -99,7 +101,23 @@ composer require stougeiro/schema
 ```
 
 
-## 🚀 Usage Example
+## 🚀 Usage
+
+Schema supports multiple type validations. Before diving into examples,
+it's worth understanding the nuances between similar types:
+
+**`bool` vs `boolean`:**
+- `bool` is permissive — accepts `true`, `false`, `1`, `0`, `"true"`, `"false"`
+- `boolean` is strict — accepts only `true` and `false`
+
+**`int` / `float` vs `number` vs `numeric`:**
+- `int` and `float` are strict — native types only
+- `number` accepts both `int` and `float`
+- `numeric` also accepts numeric strings like `"123"` or `"3.14"`
+
+**`array` vs `list`:**
+- `array` accepts any array
+- `list` accepts only sequential arrays (no gaps in keys)
 
 ### Simple validation
 
