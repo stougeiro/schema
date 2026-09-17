@@ -261,10 +261,10 @@
                 'number'   => is_int($value) || is_float($value),
                 'numeric'  => is_numeric($value),
                 'array'    => is_array($value),
+                'list'     => is_array($value) && array_is_list($value),
                 'object'   => is_object($value),
                 'resource' => is_resource($value),
                 'callable' => is_callable($value),
-                'list'     => is_array($value) && array_is_list($value),
 
                 default => throw new LogicException("Unknown validation type: '{$type}'")
             };
