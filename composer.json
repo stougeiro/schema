@@ -1,6 +1,6 @@
 {
     "name": "stougeiro/schema",
-    "description": "A lightweight foundation for defining and validating structured schemas in PHP.",
+    "description": "A lightweight structural gate for PHP payloads. Validates the shape before business logic validates the content.",
     "type": "library",
     "minimum-stability": "stable",
     "prefer-stable": true,
@@ -13,18 +13,16 @@
     ],
     "keywords": [
         "schema",
-        "typed schema",
         "validation",
         "structure",
+        "gate",
+        "payload",
+        "type-safe",
         "typed",
-        "data",
+        "nested",
+        "error-message",
         "php",
-        "design",
-        "architecture",
-        "data modeling",
-        "domain",
-        "ddd",
-        "clean"
+        "data"
     ],
     "support": {
         "issues": "https://github.com/stougeiro/schema/issues",

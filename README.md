@@ -5,8 +5,7 @@
 
 # Schema
 
-A lightweight **structural gate** for PHP payloads.  
-Validates the shape before business logic validates the content.
+A lightweight **structural gate** for PHP payloads. Validates the shape before business logic validates the content.
 
 
 ## ✨ Features
