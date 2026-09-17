@@ -5,11 +5,14 @@
 
 # Schema
 
-A lightweight and expressive **payload validation library** for PHP.  
-Designed to be minimalistic, predictable and framework‑agnostic, it provides a clean way to validate arrays and nested structures — with **clear error messages**, **type‑safe rules**, and **full path context** for deep schemas.
+A lightweight **structural gate** for PHP payloads.  
+Validates the shape before business logic validates the content.
 
 
 ## ✨ Features
+
+- **Structural gate pattern**:  
+  Validates structure before business logic. A clean, intentional order.
 
 - **Simple, explicit schemas**:  
   Define validation rules using native PHP arrays and nested `Schema` objects.
@@ -35,6 +38,55 @@ Designed to be minimalistic, predictable and framework‑agnostic, it provides a
 
 - **Zero dependencies**  
   Pure PHP. No magic. No framework coupling.
+
+---
+
+## 🚦 What Schema Is
+
+Schema validates the **structure** of your data — not the business rules.
+
+It answers one question: **"Is this payload shaped correctly?"**
+- Does the field exist?
+- Is it the right type?
+- Is the nesting correct?
+
+It does NOT answer: **"Is this value meaningful?"**
+- Is this email deliverable?
+- Is this ID registered?
+- Is this amount within limits?
+
+That's a different concern, handled elsewhere.
+
+---
+
+## 🏗️ The Gate Pattern
+
+```
+Input → Structural Gate → Business Logic → Output
+```
+
+Structural validation is **cheap**. Business validation is **richer**.
+
+Schema runs first — not because it's faster, but because it's
+the right order. A malformed structure doesn't need business rules.
+A valid structure is ready for them.
+
+```php
+$schema = new Schema([
+    'email' => 'string',
+    'amount' => 'float',
+]);
+
+// Structure first
+if ( ! $schema->validate($data, $error)) {
+    return response(422, $error);
+}
+
+// Business logic second
+$email = EmailService::validate($data['email']);
+```
+
+Schema doesn't replace business validation — it **precedes** it.
 
 ---
 
@@ -153,36 +205,51 @@ if ( ! $schema->validate($payload, $error)) {
 
 ---
 
+## ⚡ Performance
+
+Schema is designed to be lightweight. Zero dependencies, minimal
+overhead, static caching for repeated patterns.
+
+For typical API payloads, validation runs almost instantly — fast
+enough to be a transparent gate in any request lifecycle.
+
+Schema doesn't aim to be the fastest validator. It aims to be
+the right first step — structural validation before business
+validation, at a negligible cost.
+
+---
+
 ## 🧠 Why Schema?
 
-Modern PHP applications frequently rely on arrays as data carriers — API payloads, DTOs, configuration blocks, decoded JSON, request bodies, and more. Yet PHP offers no native, structured way to validate these arrays. Most solutions introduce heavy abstractions, framework‑specific validators, annotations, attributes, or magic behavior that obscures what is actually happening.
+Modern PHP applications pass arrays everywhere — API payloads,
+configuration blocks, decoded JSON, event messages. PHP offers
+no native way to validate these structures.
 
-Schema takes the opposite approach.
+Schema fills that gap — not as a business validator, but as a
+structural gatekeeper.
 
-It embraces the simplicity of plain PHP arrays while providing a predictable, explicit and type‑safe validation layer. No hidden conventions. No reflection tricks. No framework dependencies. Just clear rules and clear errors.
+**Why a gate?**
 
-Schema is built for developers who value:
+Because structure should be confirmed before business rules apply.
+A payload with the wrong shape doesn't need business evaluation.
+It deserves a fast, clear rejection.
 
-- Explicitness over magic  
-  Every rule is visible and intentional. No guessing.
+**What Schema guarantees:**
 
-- Predictable behavior  
- Validation is deterministic and easy to reason about.
+- The payload has the expected fields
+- Each field has the expected type
+- Nested structures match the expected shape
+- Errors point exactly to where the structure breaks
 
-- Readable error messages  
-  Full path context (user.address.zip) makes debugging payloads effortless.
+**What Schema leaves to you:**
 
-- Nested structure support  
-  Deeply nested schemas behave exactly like shallow ones.
+- Whether the email is deliverable
+- Whether the amount is within limits
+- Whether the ID exists in your database
 
-- Zero dependencies  
-  Works anywhere — CLI scripts, microservices, APIs, legacy systems, modern frameworks.
-
-- Type safety and clarity  
-  Native types, nullable types, optional fields, enums, const values — all expressed simply.
-
-Schema aims to be a small, expressive and reliable tool that solves one problem extremely well:
-validating structured data in PHP without unnecessary complexity.
+Schema is a gate — it opens for well-shaped data and closes for
+malformed payloads. What happens after the gate is your domain's
+responsibility.
 
 ---
 
