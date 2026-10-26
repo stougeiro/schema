@@ -290,8 +290,9 @@ $schema->validate(['age' => '12'], $error);
 echo $error; // Invalid required [age]: expected [int], got ['12' (string)]
 ```
 
-Use `Schema::production()` to return to the default redacted mode. Both methods
-are process-wide configuration; call them once at bootstrap, not per request.
+`Schema::development()` is process-wide configuration; call it once at
+bootstrap, not per request. Production needs no call: redacted is the default.
+Simply omit `Schema::development()` outside development and tests.
 
 When using nested schemas, the error message includes the full path to the failing field:
 
@@ -347,8 +348,8 @@ across requests and coroutines.
   request or job handled by that worker.
 
 Configure error verbosity at the same boot point. The default is
-redacted (`Schema::production()`); development and tests call
-`Schema::development()`. Do not switch modes per request or coroutine.
+redacted; development and tests call `Schema::development()`.
+Do not switch modes per request or coroutine.
 
 No request context is needed. If a schema is created per request, it
 still works — it simply compiles once per request instead of once per
