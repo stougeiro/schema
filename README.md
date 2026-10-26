@@ -23,6 +23,9 @@ A lightweight **structural gate** for PHP payloads. Validates the shape before b
 - **Nested schema support**:  
   Validate complex payloads with unlimited depth.
 
+- **List of nested schemas**:  
+  Use `$schema->many()` to validate a list of objects against the same structure.
+
 - **Optional fields**:  
   Use `string:o` or `$schema->optional()` for optional nested schemas.
 
@@ -169,6 +172,55 @@ $payload = [
 ];
 
 $schema->validate($payload); // true
+```
+
+### List of nested schemas
+
+Use `many()` when the field contains a list of objects that share the same structure.
+Combine it with `optional()` when the list itself is optional.
+
+```php
+$schema = schema([
+  'users' => schema([
+    'id'   => 'int',
+    'name' => 'string',
+  ])->many(),
+  'tags' => schema([
+    'label' => 'string',
+  ])->many()->optional(),
+]);
+
+$payload = [
+  'users' => [
+    ['id' => 1, 'name' => 'Sidney'],
+    ['id' => 2, 'name' => 'Ana'],
+  ],
+];
+
+$schema->validate($payload); // true
+```
+
+Errors include the list index in the path:
+
+```php
+$payload['users'][1]['name'] = 123;
+
+$schema->validate($payload, $error);
+
+echo $error; // Invalid required [users.1.name]: expected [string], got [123 (int)]
+```
+
+A field that expects a nested schema but receives another type fails
+without throwing an exception:
+
+```php
+$schema = schema([
+  'snippet' => schema(['log' => 'int:o'])->optional(),
+]);
+
+$schema->validate(['snippet' => 10], $error);
+
+echo $error; // Invalid optional [snippet]: expected [array], got [10 (int)]
 ```
 
 
