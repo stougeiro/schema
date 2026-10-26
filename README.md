@@ -18,7 +18,7 @@ A lightweight **structural gate** for PHP payloads. Validates the shape before b
 
 - **Full path error messages**:  
   Errors show exactly *where* the validation failed:  
-  `Invalid required [user.address.zip]: expected [int], got ['ABC' (string)]`
+  `Invalid required [user.address.zip]: expected [int], got [string]`
 
 - **Nested schema support**:  
   Validate complex payloads with unlimited depth.
@@ -207,8 +207,11 @@ $payload['users'][1]['name'] = 123;
 
 $schema->validate($payload, $error);
 
-echo $error; // Invalid required [users.1.name]: expected [string], got [123 (int)]
+echo $error; // Invalid required [users.1.name]: expected [string], got [int]
 ```
+
+In development mode, the same error also includes the received value:
+`got [123 (int)]`.
 
 A field that expects a nested schema but receives another type fails
 without throwing an exception:
@@ -220,8 +223,33 @@ $schema = schema([
 
 $schema->validate(['snippet' => 10], $error);
 
-echo $error; // Invalid optional [snippet]: expected [array], got [10 (int)]
+echo $error; // Invalid optional [snippet]: expected [array], got [int]
 ```
+
+### Optional nested schemas
+
+For a nested schema, `optional()` means "no content": the key may be absent,
+`null`, or an empty array. Any non-empty array is validated normally.
+
+```php
+$schema = schema([
+  'profile' => schema([
+    'bio' => 'string',
+  ])->optional(),
+]);
+
+$schema->validate([]);                          // true
+$schema->validate(['profile' => null]);         // true
+$schema->validate(['profile' => []]);           // true
+$schema->validate(['profile' => ['bio' => 'x']]); // true
+```
+
+> With associative JSON decoding, `{}` and `[]` both become `[]` in PHP.
+> For optional nested schemas, both are treated as "no content".
+
+This rule applies only to nested schemas. Optional scalars remain strict:
+`string:o` accepts a missing key but rejects `null` and `[]`. Use `?string:o`
+when the value may also be `null`.
 
 
 ## 🔥 Error Handling
@@ -242,9 +270,28 @@ $payload = [
 ];
 
 if ( ! $schema->validate($payload, $error)) {
-  echo $error; // Invalid required [age]: expected [int], got ['12' (string)]
+  echo $error; // Invalid required [age]: expected [int], got [string]
 }
 ```
+
+By default, errors are safe for exposition and logging: they include the path,
+the expected type and the actual type, but never the payload value.
+
+### Error verbosity
+
+Development and tests can opt into detailed messages:
+
+```php
+use STDW\Schema\Schema;
+
+Schema::development();
+
+$schema->validate(['age' => '12'], $error);
+echo $error; // Invalid required [age]: expected [int], got ['12' (string)]
+```
+
+Use `Schema::production()` to return to the default redacted mode. Both methods
+are process-wide configuration; call them once at bootstrap, not per request.
 
 When using nested schemas, the error message includes the full path to the failing field:
 
@@ -268,7 +315,7 @@ $payload = [
 ];
 
 if ( ! $schema->validate($payload, $error)) {
-  echo $error; // Invalid required [user.id]: expected [int], got ['12' (string)]
+  echo $error; // Invalid required [user.id]: expected [int], got [string]
 }
 ```
 
@@ -285,6 +332,27 @@ enough to be a transparent gate in any request lifecycle.
 Schema doesn't aim to be the fastest validator. It aims to be
 the right first step — structural validation before business
 validation, at a negligible cost.
+
+### Long-running workers
+
+Schema keeps no request state. Its compiled representation depends
+only on the schema definition, so an instance can be reused safely
+across requests and coroutines.
+
+- **FPM:** build the schema where configuration lives (bootstrap or
+  container). It compiles once per instance and is reused within
+  the request.
+- **Swoole, RoadRunner, Octane and queue workers:** build the schema
+  at worker boot and reuse it. Compilation is amortized across every
+  request or job handled by that worker.
+
+Configure error verbosity at the same boot point. The default is
+redacted (`Schema::production()`); development and tests call
+`Schema::development()`. Do not switch modes per request or coroutine.
+
+No request context is needed. If a schema is created per request, it
+still works — it simply compiles once per request instead of once per
+worker.
 
 ---
 
