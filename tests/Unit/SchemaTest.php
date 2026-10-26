@@ -574,3 +574,145 @@
 
         expect($error)->toBe("Invalid required [a.b.c]: expected [int], got ['not-int' (string)]");
     });
+
+
+//
+// 27. Non-array sub-schema
+//
+
+it('rejects non-array for required nested schema', function () {
+    $schema = new Schema([
+        'user' => new Schema(['id' => 'int']),
+    ]);
+
+    $valid = $schema->validate(['user' => 10], $error);
+
+    expect($valid)->toBeFalse();
+    expect($error)->toBe('Invalid required [user]: expected [array], got [10 (int)]');
+});
+
+it('rejects non-array for optional nested schema', function () {
+    $schema = new Schema([
+        'snippet' => (new Schema(['log' => 'int:o']))->optional(),
+    ]);
+
+    $valid = $schema->validate(['snippet' => 10], $error);
+
+    expect($valid)->toBeFalse();
+    expect($error)->toBe('Invalid optional [snippet]: expected [array], got [10 (int)]');
+});
+
+it('reports deep path when non-array appears mid-nesting', function () {
+    $schema = new Schema([
+        'company' => new Schema([
+            'address' => new Schema(['zip' => 'string']),
+        ]),
+    ]);
+
+    $valid = $schema->validate(['company' => ['address' => 'nowhere']], $error);
+
+    expect($valid)->toBeFalse();
+    expect($error)->toBe("Invalid required [company.address]: expected [array], got ['nowhere' (string)]");
+});
+
+
+//
+// 28. List of nested schemas
+//
+
+it('validates a list of nested schemas', function () {
+    $schema = new Schema([
+        'users' => (new Schema([
+            'id'   => 'int',
+            'name' => 'string',
+        ]))->many(),
+    ]);
+
+    expect($schema->validate([
+        'users' => [
+            ['id' => 1, 'name' => 'Ana'],
+            ['id' => 2, 'name' => 'Bia'],
+        ],
+    ]))->toBeTrue();
+});
+
+it('validates an empty list of nested schemas', function () {
+    $schema = new Schema([
+        'users' => (new Schema(['id' => 'int']))->many(),
+    ]);
+
+    expect($schema->validate(['users' => []]))->toBeTrue();
+});
+
+it('rejects non-list for a many schema', function () {
+    $schema = new Schema([
+        'users' => (new Schema(['id' => 'int']))->many(),
+    ]);
+
+    $valid = $schema->validate(['users' => ['id' => 1]], $error);
+
+    expect($valid)->toBeFalse();
+    expect($error)->toBe('Invalid required [users]: expected [list], got [Array]');
+});
+
+it('reports item error with indexed path', function () {
+    $schema = new Schema([
+        'users' => (new Schema(['id' => 'int']))->many(),
+    ]);
+
+    $valid = $schema->validate([
+        'users' => [
+            ['id' => 1],
+            ['id' => 'x'],
+        ],
+    ], $error);
+
+    expect($valid)->toBeFalse();
+    expect($error)->toBe("Invalid required [users.1.id]: expected [int], got ['x' (string)]");
+});
+
+it('rejects non-array item in a list', function () {
+    $schema = new Schema([
+        'users' => (new Schema(['id' => 'int']))->many(),
+    ]);
+
+    $valid = $schema->validate(['users' => [10]], $error);
+
+    expect($valid)->toBeFalse();
+    expect($error)->toBe('Invalid required [users.0]: expected [array], got [10 (int)]');
+});
+
+it('validates optional list of nested schemas', function () {
+    $schema = new Schema([
+        'users' => (new Schema(['id' => 'int']))->many()->optional(),
+    ]);
+
+    expect($schema->validate([]))->toBeTrue();
+    expect($schema->validate(['users' => [['id' => 1]]]))->toBeTrue();
+    expect($schema->validate(['users' => [['id' => 'x']]]))->toBeFalse();
+});
+
+it('validates nested lists of nested schemas', function () {
+    $schema = new Schema([
+        'users' => (new Schema([
+            'id'    => 'int',
+            'roles' => (new Schema(['name' => 'string']))->many(),
+        ]))->many(),
+    ]);
+
+    expect($schema->validate([
+        'users' => [
+            ['id' => 1, 'roles' => [['name' => 'admin']]],
+            ['id' => 2, 'roles' => []],
+        ],
+    ]))->toBeTrue();
+
+    $valid = $schema->validate([
+        'users' => [
+            ['id' => 1, 'roles' => [['name' => 'admin'], ['name' => 5]]],
+        ],
+    ], $error);
+
+    expect($valid)->toBeFalse();
+    expect($error)->toBe('Invalid required [users.0.roles.1.name]: expected [string], got [5 (int)]');
+});

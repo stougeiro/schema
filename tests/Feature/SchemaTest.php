@@ -335,3 +335,33 @@ it('shows all unexpected fields in error', function () {
 
     expect($error)->toBe('Unexpected fields: [extra1, extra2]');
 });
+
+
+//
+// 16. List of nested schemas
+//
+
+it('validates a payload with a list of users', function () {
+    $schema = new Schema([
+        'users' => (new Schema([
+            'id'    => 'int',
+            'name'  => 'string',
+            'email' => 'string',
+        ]))->many(),
+    ]);
+
+    $payload = [
+        'users' => [
+            ['id' => 1, 'name' => 'Ana', 'email' => 'ana@example.com'],
+            ['id' => 2, 'name' => 'Bia', 'email' => 'bia@example.com'],
+        ],
+    ];
+
+    expect($schema->validate($payload))->toBeTrue();
+
+    $payload['users'][1]['email'] = 123;
+
+    $schema->validate($payload, $error);
+
+    expect($error)->toBe('Invalid required [users.1.email]: expected [string], got [123 (int)]');
+});

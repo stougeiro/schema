@@ -48,13 +48,13 @@ function createPaymentSchema(): Schema
             ]))->optional(),
         ]),
 
-        'items' => new Schema([
+        'items' => (new Schema([
             'id'          => 'string',
             'description' => 'string',
             'quantity'    => 'int',
             'unit_price'  => 'float',
             'total'       => 'float',
-        ]),
+        ]))->many(),
 
         'metadata' => (new Schema([
             'key1' => 'string:o',
@@ -67,11 +67,11 @@ function createPaymentSchema(): Schema
             'processing' => 'float',
         ]))->optional(),
 
-        'history' => new Schema([
+        'history' => (new Schema([
             'status'    => 'enum(pending|approved|declined|refunded|cancelled)',
             'timestamp' => 'string',
-            'reason'    => 'string:o',
-        ]),
+            'reason'    => '?string:o',
+        ]))->many(),
     ]);
 }
 
@@ -383,7 +383,7 @@ it('generates error path in under 40ms for 10000 calls', function () {
 // P1 — Payment schema classification (full schema, ~40 fields, 4 levels)
 //
 
-it('classifies payment response schema in under 175ms for 10000 calls', function () {
+it('classifies payment response schema in under 350ms for 10000 calls', function () {
     $schema = createPaymentSchema();
     $payload = createFullPaymentPayload();
 
@@ -395,7 +395,8 @@ it('classifies payment response schema in under 175ms for 10000 calls', function
 
     $elapsed = (hrtime(true) - $start) / 1e6;
 
-    expect($elapsed)->toBeLessThan(175);
+    expect($elapsed)->toBeLessThan(350);
+    expect($schema->validate($payload))->toBeTrue();
 });
 
 
@@ -403,7 +404,7 @@ it('classifies payment response schema in under 175ms for 10000 calls', function
 // P2 — All optional fields present
 //
 
-it('validates payment response with all optional fields in under 175ms for 10000 calls', function () {
+it('validates payment response with all optional fields in under 350ms for 10000 calls', function () {
     $schema = createPaymentSchema();
     $payload = createFullPaymentPayload();
 
@@ -415,7 +416,7 @@ it('validates payment response with all optional fields in under 175ms for 10000
 
     $elapsed = (hrtime(true) - $start) / 1e6;
 
-    expect($elapsed)->toBeLessThan(175);
+    expect($elapsed)->toBeLessThan(350);
 });
 
 
@@ -423,7 +424,7 @@ it('validates payment response with all optional fields in under 175ms for 10000
 // P3 — Optional fields absent (minimal payment)
 //
 
-it('validates payment response without optional fields in under 100ms for 10000 calls', function () {
+it('validates payment response without optional fields in under 200ms for 10000 calls', function () {
     $schema = createPaymentSchema();
     $payload = createMinimalPaymentPayload();
 
@@ -435,7 +436,8 @@ it('validates payment response without optional fields in under 100ms for 10000 
 
     $elapsed = (hrtime(true) - $start) / 1e6;
 
-    expect($elapsed)->toBeLessThan(100);
+    expect($elapsed)->toBeLessThan(200);
+    expect($schema->validate($payload))->toBeTrue();
 });
 
 
@@ -443,7 +445,7 @@ it('validates payment response without optional fields in under 100ms for 10000 
 // P4 — 10 items
 //
 
-it('validates payment response with 10 items in under 175ms for 10000 calls', function () {
+it('validates payment response with 10 items in under 700ms for 10000 calls', function () {
     $schema = createPaymentSchema();
     $payload = createFullPaymentPayload();
 
@@ -467,7 +469,7 @@ it('validates payment response with 10 items in under 175ms for 10000 calls', fu
 
     $elapsed = (hrtime(true) - $start) / 1e6;
 
-    expect($elapsed)->toBeLessThan(175);
+    expect($elapsed)->toBeLessThan(700);
 });
 
 
@@ -475,7 +477,7 @@ it('validates payment response with 10 items in under 175ms for 10000 calls', fu
 // P5 — 20 history entries
 //
 
-it('validates payment response with 20 history entries in under 180ms for 10000 calls', function () {
+it('validates payment response with 20 history entries in under 950ms for 10000 calls', function () {
     $schema = createPaymentSchema();
     $payload = createFullPaymentPayload();
 
@@ -498,7 +500,7 @@ it('validates payment response with 20 history entries in under 180ms for 10000 
 
     $elapsed = (hrtime(true) - $start) / 1e6;
 
-    expect($elapsed)->toBeLessThan(180);
+    expect($elapsed)->toBeLessThan(950);
 });
 
 
@@ -527,7 +529,7 @@ it('generates deep error path in payment schema in under 160ms for 10000 calls',
 // P7 — Simple schema vs payment schema ratio
 //
 
-it('payment schema is within 9x of simple schema performance', function () {
+it('payment schema is within 18x of simple schema performance', function () {
     $simpleSchema = new Schema([
         'id'     => 'int',
         'name'   => 'string',
@@ -559,5 +561,5 @@ it('payment schema is within 9x of simple schema performance', function () {
 
     $ratio = $paymentTime / max($simpleTime, 0.001);
 
-    expect($ratio)->toBeLessThan(9);
+    expect($ratio)->toBeLessThan(18);
 });
