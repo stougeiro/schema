@@ -716,3 +716,253 @@ it('validates nested lists of nested schemas', function () {
     expect($valid)->toBeFalse();
     expect($error)->toBe('Invalid required [users.0.roles.1.name]: expected [string], got [5 (int)]');
 });
+
+
+//
+// 29. Optional nested schema: absent, null and empty array
+//
+
+it('treats absent, null and empty array as empty for optional nested schema', function () {
+    $schema = new Schema([
+        'profile' => (new Schema(['bio' => 'string']))->optional(),
+    ]);
+
+    expect($schema->validate([]))->toBeTrue();
+    expect($schema->validate(['profile' => null]))->toBeTrue();
+    expect($schema->validate(['profile' => []]))->toBeTrue();
+    expect($schema->validate(['profile' => ['bio' => 'Sidney']]))->toBeTrue();
+    expect($schema->validate(['profile' => ['bio' => 123]]))->toBeFalse();
+});
+
+it('does not treat empty array as absent for required nested schema', function () {
+    $schema = new Schema([
+        'profile' => new Schema(['bio' => 'string']),
+    ]);
+
+    expect($schema->validate(['profile' => null]))->toBeFalse();
+    expect($schema->validate(['profile' => []]))->toBeFalse();
+});
+
+it('does not treat null as absent for optional scalar', function () {
+    $schema = new Schema(['nickname' => 'string:o']);
+
+    expect($schema->validate([]))->toBeTrue();
+    expect($schema->validate(['nickname' => null]))->toBeFalse();
+    expect($schema->validate(['nickname' => []]))->toBeFalse();
+});
+
+it('allows null for nullable optional scalar', function () {
+    $schema = new Schema(['nickname' => '?string:o']);
+
+    expect($schema->validate([]))->toBeTrue();
+    expect($schema->validate(['nickname' => null]))->toBeTrue();
+    expect($schema->validate(['nickname' => 'Sidney']))->toBeTrue();
+});
+
+it('treats absent, null and empty array as empty for optional many schema', function () {
+    $schema = new Schema([
+        'users' => (new Schema(['id' => 'int']))->many()->optional(),
+    ]);
+
+    expect($schema->validate([]))->toBeTrue();
+    expect($schema->validate(['users' => null]))->toBeTrue();
+    expect($schema->validate(['users' => []]))->toBeTrue();
+    expect($schema->validate(['users' => [['id' => 1]]]))->toBeTrue();
+});
+
+it('does not treat null or empty array items as absent inside a list', function () {
+    $schema = new Schema([
+        'users' => (new Schema(['id' => 'int']))->many()->optional(),
+    ]);
+
+    expect($schema->validate(['users' => [null]]))->toBeFalse();
+    expect($schema->validate(['users' => [[]]]))->toBeFalse();
+});
+
+
+//
+// 30. Runtime optionality
+//
+
+it('reflects optional() called after a previous validation', function () {
+    $profile = new Schema(['bio' => 'string']);
+    $schema = new Schema(['profile' => $profile]);
+
+    expect($schema->validate(['profile' => ['bio' => 'Sidney']]))->toBeTrue();
+    expect($schema->validate([]))->toBeFalse();
+
+    $profile->optional();
+
+    expect($schema->validate([]))->toBeTrue();
+});
+
+it('reflects many() called after a previous validation', function () {
+    $user = new Schema(['id' => 'int']);
+    $schema = new Schema(['users' => $user]);
+
+    expect($schema->validate(['users' => ['id' => 1]]))->toBeTrue();
+    expect($schema->validate(['users' => [['id' => 1]]]))->toBeFalse();
+
+    $user->many();
+
+    expect($schema->validate(['users' => [['id' => 1]]]))->toBeTrue();
+});
+
+it('keeps required fields ahead of optional fields after compilation', function () {
+    $schema = new Schema([
+        'nickname' => 'int:o',
+        'name' => 'string',
+    ]);
+
+    expect($schema->validate(['nickname' => 'invalid']))->toBeFalse();
+
+    $schema->validate(['nickname' => 'invalid'], $error);
+
+    expect($error)->toBe('Missing required: name');
+});
+
+it('reuses the same schema across repeated validations', function () {
+    $schema = new Schema([
+        'id' => 'int',
+        'items' => (new Schema(['name' => 'string']))->many()->optional(),
+    ]);
+
+    for ($i = 0; $i < 25; $i++) {
+        expect($schema->validate(['id' => $i, 'items' => [['name' => 'a']]]))->toBeTrue();
+        expect($schema->validate(['id' => 'invalid']))->toBeFalse();
+    }
+});
+
+
+//
+// 31. Production error redaction
+//
+
+it('defaults to production error mode', function () {
+    $property = (new ReflectionClass(Schema::class))->getProperty('production');
+
+    expect($property->getDefaultValue())->toBeTrue();
+});
+
+it('redacts payload values from scalar errors in production', function () {
+    Schema::production();
+
+    $schema = new Schema([
+        'name' => 'string',
+        'age' => 'int',
+        'amount' => 'float',
+        'active' => 'bool',
+    ]);
+
+    $schema->validate([
+        'name' => 'Sidney',
+        'age' => 'SECRET_AGE',
+        'amount' => 1.5,
+        'active' => true,
+    ], $error);
+
+    expect($error)->toBe('Invalid required [age]: expected [int], got [string]');
+    expect($error)->not->toContain('SECRET_AGE');
+
+    $schema->validate([
+        'name' => 'Sidney',
+        'age' => 42,
+        'amount' => 'SECRET_AMOUNT',
+        'active' => true,
+    ], $error);
+
+    expect($error)->toBe('Invalid required [amount]: expected [float], got [string]');
+    expect($error)->not->toContain('SECRET_AMOUNT');
+});
+
+it('redacts payload values from nested and indexed paths in production', function () {
+    Schema::production();
+
+    $schema = new Schema([
+        'user' => new Schema([
+            'document' => 'int',
+        ]),
+        'users' => (new Schema([
+            'id' => 'int',
+        ]))->many(),
+    ]);
+
+    $schema->validate([
+        'user' => ['document' => 'SECRET_DOCUMENT'],
+        'users' => [['id' => 1]],
+    ], $error);
+
+    expect($error)->toBe('Invalid required [user.document]: expected [int], got [string]');
+    expect($error)->not->toContain('SECRET_DOCUMENT');
+
+    $schema->validate([
+        'user' => ['document' => 123],
+        'users' => [['id' => 1], ['id' => 'SECRET_ID']],
+    ], $error);
+
+    expect($error)->toBe('Invalid required [users.1.id]: expected [int], got [string]');
+    expect($error)->not->toContain('SECRET_ID');
+});
+
+it('hides unexpected field names in production', function () {
+    Schema::production();
+
+    $schema = new Schema(['name' => 'string']);
+
+    $schema->validate([
+        'name' => 'Sidney',
+        'pan' => '4111111111111111',
+        'cvv' => '123',
+    ], $error);
+
+    expect($error)->toBe('Unexpected fields present: 2');
+    expect($error)->not->toContain('pan');
+    expect($error)->not->toContain('cvv');
+    expect($error)->not->toContain('4111111111111111');
+});
+
+it('hides schema definition details in production', function () {
+    Schema::production();
+
+    $schema = new Schema(['field' => 'unknown']);
+
+    expect($schema->validate(['field' => 'value'], $error))->toBeFalse();
+    expect($error)->toBe('Invalid schema definition');
+
+    $enum = new Schema(['field' => 'enum(a|)']);
+
+    expect($enum->validate(['field' => 'a'], $error))->toBeFalse();
+    expect($error)->toBe('Invalid schema definition');
+
+    $definition = new Schema(['field' => 123]);
+
+    expect($definition->validate(['field' => 'value'], $error))->toBeFalse();
+    expect($error)->toBe('Invalid schema definition');
+});
+
+it('does not expose object class names in production', function () {
+    Schema::production();
+
+    $schema = new Schema(['value' => 'string']);
+
+    $schema->validate(['value' => new stdClass()], $error);
+
+    expect($error)->toBe('Invalid required [value]: expected [string], got [object]');
+    expect($error)->not->toContain(stdClass::class);
+});
+
+it('changes only error detail between production and development', function () {
+    $schema = new Schema(['age' => 'int']);
+    $payload = ['age' => 'SECRET_AGE'];
+
+    Schema::production();
+    expect($schema->validate($payload, $error))->toBeFalse();
+    expect($error)->toBe('Invalid required [age]: expected [int], got [string]');
+
+    Schema::development();
+    expect($schema->validate($payload, $error))->toBeFalse();
+    expect($error)->toBe("Invalid required [age]: expected [int], got ['SECRET_AGE' (string)]");
+
+    Schema::production();
+    expect($schema->validate(['age' => 42]))->toBeTrue();
+});
