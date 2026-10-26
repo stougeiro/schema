@@ -1,6 +1,7 @@
 <?php
 
 use STDW\Schema\Schema;
+use Tests\Support\TestableSchema;
 use Tests\TestCase;
 
 /*
@@ -19,7 +20,7 @@ pest()->extend(TestCase::class)->in('Feature');
 Schema::development();
 
 afterEach(function () {
-    Schema::development();
+    TestableSchema::production();
 });
 
 /*

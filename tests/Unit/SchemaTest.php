@@ -1,6 +1,7 @@
 <?php declare(strict_types=1);
 
     use STDW\Schema\Schema;
+    use Tests\Support\TestableSchema;
 
     //
     // 1. Constructor
@@ -845,7 +846,7 @@ it('defaults to production error mode', function () {
 });
 
 it('redacts payload values from scalar errors in production', function () {
-    Schema::production();
+    TestableSchema::production();
 
     $schema = new Schema([
         'name' => 'string',
@@ -876,7 +877,7 @@ it('redacts payload values from scalar errors in production', function () {
 });
 
 it('redacts payload values from nested and indexed paths in production', function () {
-    Schema::production();
+    TestableSchema::production();
 
     $schema = new Schema([
         'user' => new Schema([
@@ -905,7 +906,7 @@ it('redacts payload values from nested and indexed paths in production', functio
 });
 
 it('hides unexpected field names in production', function () {
-    Schema::production();
+    TestableSchema::production();
 
     $schema = new Schema(['name' => 'string']);
 
@@ -922,7 +923,7 @@ it('hides unexpected field names in production', function () {
 });
 
 it('hides schema definition details in production', function () {
-    Schema::production();
+    TestableSchema::production();
 
     $schema = new Schema(['field' => 'unknown']);
 
@@ -941,7 +942,7 @@ it('hides schema definition details in production', function () {
 });
 
 it('does not expose object class names in production', function () {
-    Schema::production();
+    TestableSchema::production();
 
     $schema = new Schema(['value' => 'string']);
 
@@ -955,7 +956,7 @@ it('changes only error detail between production and development', function () {
     $schema = new Schema(['age' => 'int']);
     $payload = ['age' => 'SECRET_AGE'];
 
-    Schema::production();
+    TestableSchema::production();
     expect($schema->validate($payload, $error))->toBeFalse();
     expect($error)->toBe('Invalid required [age]: expected [int], got [string]');
 
@@ -963,6 +964,6 @@ it('changes only error detail between production and development', function () {
     expect($schema->validate($payload, $error))->toBeFalse();
     expect($error)->toBe("Invalid required [age]: expected [int], got ['SECRET_AGE' (string)]");
 
-    Schema::production();
+    TestableSchema::production();
     expect($schema->validate(['age' => 42]))->toBeTrue();
 });
