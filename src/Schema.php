@@ -20,6 +20,10 @@
          */
         protected bool $optional = false;
 
+        /** @var bool
+         */
+        protected bool $many = false;
+
 
         /**
          * Create a new schema instance.
@@ -55,15 +59,37 @@
             return $this;
         }
 
+        /**
+         * Mark this schema as a list of schemas.
+         *
+         * @return Schema
+         */
+        public function many(): Schema
+        {
+            $this->many = true;
+
+            return $this;
+        }
+
 
         /**
-         * @param array<int|string, mixed> $data
+         * @param mixed $data
          * @param null|string &$error 
          * @param string $context 
          * @return bool 
          */
-        protected function doValidate(array $data, ?string &$error, string $context): bool
+        protected function doValidate(mixed $data, ?string &$error, string $context): bool
         {
+            if ( ! is_array($data)) {
+                $label = $this->optional ? 'optional' : 'required';
+
+                $error = ($context === '')
+                    ? "Invalid payload: expected [array], got [{$this->getType($data)}]"
+                    : "Invalid {$label} [{$context}]: expected [array], got [{$this->getType($data)}]";
+
+                return false;
+            }
+
             $optional = [];
             $required = [];
             $collection = [];
@@ -128,25 +154,7 @@
                         return false;
                     }
 
-                    $isSchema = is_object($type);
-
-                    if ($isSchema) {
-                        /** @var array<int|string, mixed> $childData */
-                        $childData = $data[$key];
-                        $childContext = ($context === '') ? $key : "{$context}.{$key}";
-
-                        $valid = $type->doValidate($childData, $error, $childContext);
-                    } else {
-                        $valid = $this->match($type, $data[$key]);
-                    }
-
-                    if ( ! $valid) {
-                        if ( ! $isSchema) {
-                            $fullKey = ($context === '') ? $key : "{$context}.{$key}";
-                            $received = $this->getType($data[$key]);
-                            $error = "Invalid required [{$fullKey}]: expected [{$type}], got [{$received}]";
-                        }
-
+                    if ( ! $this->validateField($key, $type, $data[$key], $error, $context, false)) {
                         return false;
                     }
                 }
@@ -158,25 +166,7 @@
                         continue;
                     }
 
-                    $isSchema = is_object($type);
-
-                    if ($isSchema) {
-                        /** @var array<int|string, mixed> $childData */
-                        $childData = $data[$key];
-                        $childContext = ($context === '') ? $key : "{$context}.{$key}";
-
-                        $valid = $type->doValidate($childData, $error, $childContext);
-                    } else {
-                        $valid = $this->match($type, $data[$key]);
-                    }
-
-                    if ( ! $valid) {
-                        if ( ! $isSchema) {
-                            $fullKey = ($context === '') ? $key : "{$context}.{$key}";
-                            $received = $this->getType($data[$key]);
-                            $error = "Invalid optional [{$fullKey}]: expected [{$type}], got [{$received}]";
-                        }
-
+                    if ( ! $this->validateField($key, $type, $data[$key], $error, $context, true)) {
                         return false;
                     }
                 }
@@ -187,6 +177,56 @@
             }
 
             return true;
+        }
+
+        /**
+         * @param string $key
+         * @param string|Schema $type
+         * @param mixed $value
+         * @param null|string &$error
+         * @param string $context
+         * @param bool $isOptional
+         * @return bool
+         */
+        protected function validateField(
+            string $key,
+            string|Schema $type,
+            mixed $value,
+            ?string &$error,
+            string $context,
+            bool $isOptional ): bool
+        {
+            $path = ($context === '') ? $key : "{$context}.{$key}";
+
+            if (is_string($type)) {
+                if ($this->match($type, $value)) {
+                    return true;
+                }
+
+                $label = $isOptional ? 'optional' : 'required';
+                $error = "Invalid {$label} [{$path}]: expected [{$type}], got [{$this->getType($value)}]";
+
+                return false;
+            }
+
+            if ($type->many) {
+                if ( ! is_array($value) || ! array_is_list($value)) {
+                    $label = $isOptional ? 'optional' : 'required';
+                    $error = "Invalid {$label} [{$path}]: expected [list], got [{$this->getType($value)}]";
+
+                    return false;
+                }
+
+                foreach ($value as $index => $item) {
+                    if ( ! $type->doValidate($item, $error, "{$path}.{$index}")) {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            return $type->doValidate($value, $error, $path);
         }
 
         /**
