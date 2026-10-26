@@ -31,4 +31,7 @@ psalm-cache/
 # Coverage
 coverage/
 
+# OpenCode
+.agents/
+
 !.gitkeep
