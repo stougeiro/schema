@@ -49,16 +49,6 @@
 
 
         /**
-         * Redact values from validation errors.
-         *
-         * @return void
-         */
-        public static function production(): void
-        {
-            self::$production = true;
-        }
-
-        /**
          * Include values in validation errors for development and testing.
          *
          * @return void
@@ -399,27 +389,20 @@
          */
         protected function getType(mixed $value): string
         {
-            if (self::$production) {
-                if (is_null($value)) return 'null';
-                if (is_bool($value)) return 'bool';
-                if (is_string($value)) return 'string';
-                if (is_int($value)) return 'int';
-                if (is_float($value)) return 'float';
-                if (is_array($value)) return 'array';
-                if (is_object($value)) return 'object';
-                if (is_resource($value)) return 'resource';
+            $redacted = self::$production;
 
-                return gettype($value);
-            }
+            return match(true) {
+                is_null($value) => 'null',
+                is_bool($value) => $redacted ? 'bool' : ($value ? 'true (bool)' : 'false (bool)'),
+                is_string($value) => $redacted ? 'string' : "'{$value}' (string)",
+                is_int($value) => $redacted ? 'int' : "{$value} (int)",
+                is_float($value) => $redacted ? 'float' : "{$value} (float)",
+                is_array($value) => $redacted ? 'array' : 'Array',
+                is_object($value) => $redacted ? 'object' : 'Object('. get_class($value) .')',
+                is_resource($value) => 'resource',
+                is_callable($value) => 'callable',
 
-            if (is_null($value)) return 'null';
-            if (is_bool($value)) return $value ? 'true (bool)' : 'false (bool)';
-            if (is_string($value)) return "'{$value}' (string)";
-            if (is_int($value)) return "{$value} (int)";
-            if (is_float($value)) return "{$value} (float)";
-            if (is_array($value)) return 'Array';
-            if (is_object($value)) return 'Object('. get_class($value) .')';
-
-            return gettype($value);
+                default => gettype($value),
+            };
         }
     }
