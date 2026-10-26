@@ -139,7 +139,7 @@
             if ($diff = array_diff_key($data, $this->compiled['collection'])) {
                 $error = self::$production
                     ? 'Unexpected fields present: ' . count($diff)
-                    : "Unexpected fields: [" . implode(', ', array_keys($diff)) . "]";
+                    : "Unexpected fields: [". implode(', ', array_keys($diff)) ."]";
 
                 return false;
             }
@@ -217,7 +217,7 @@
                     if ( ! $type instanceof Schema) {
                         $error = self::$production
                             ? 'Invalid schema definition'
-                            : "Invalid object [{$key}]: expected [Schema], got [" . get_class($type) . "]";
+                            : "Invalid object [{$key}]: expected [Schema], got [". get_class($type) ."]";
 
                         return null;
                     }
@@ -241,7 +241,7 @@
 
                 $error = self::$production
                     ? 'Invalid schema definition'
-                    : "Invalid type [{$key}]: expected [string|Schema], got [" . get_debug_type($type) . "]";
+                    : "Invalid type [{$key}]: expected [string|Schema], got [". get_debug_type($type) ."]";
 
                 return null;
             }
