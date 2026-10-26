@@ -12,9 +12,9 @@
         protected const BOOL_COERCION = [0, 1, '0', '1', 'true', 'false'];
 
 
-        /** @var array<string, mixed>
+        /** @var bool
          */
-        protected static array $cache = [];
+        protected static bool $production = true;
 
         /** @var bool
          */
@@ -23,6 +23,19 @@
         /** @var bool
          */
         protected bool $many = false;
+
+        /**
+         * @var null|array{
+         *   required: array<string, string|Schema>,
+         *   optional: array<string, string|Schema>,
+         *   collection: array<string, true>
+         * }
+         */
+        protected ?array $compiled = null;
+
+        /** @var array<string, mixed>
+         */
+        protected static array $cache = [];
 
 
         /**
@@ -33,6 +46,27 @@
         public function __construct(
             private array $schema )
         { }
+
+
+        /**
+         * Redact values from validation errors.
+         *
+         * @return void
+         */
+        public static function production(): void
+        {
+            self::$production = true;
+        }
+
+        /**
+         * Include values in validation errors for development and testing.
+         *
+         * @return void
+         */
+        public static function development(): void
+        {
+            self::$production = false;
+        }
 
 
         /**
@@ -90,28 +124,106 @@
                 return false;
             }
 
+            if ($this->compiled === null) {
+                if (($this->compiled = $this->compile($error)) === null) {
+                    return false;
+                }
+            }
+
+            $required = $this->compiled['required'];
+            $optional = $this->compiled['optional'];
+
+            /**
+             * Validation: Unexpected fields
+             */
+            if ($diff = array_diff_key($data, $this->compiled['collection'])) {
+                $error = self::$production
+                    ? 'Unexpected fields present: ' . count($diff)
+                    : "Unexpected fields: [" . implode(', ', array_keys($diff)) . "]";
+
+                return false;
+            }
+
+            /**
+             * Validation
+             */
+            try {
+                /** Required fields
+                 */
+                foreach ($required as $key => $type) {
+                    if ( ! is_string($type) && $type->optional) {
+                        continue;
+                    }
+
+                    if ( ! array_key_exists($key, $data)) {
+                        $error = "Missing required: {$key}";
+
+                        return false;
+                    }
+
+                    $value = $data[$key];
+
+                    if ( ! $this->validateField($key, $type, $value, $error, $context, false)) {
+                        return false;
+                    }
+                }
+
+                /** Optional fields
+                 */
+                foreach ($optional as $key => $type) {
+                    if ( ! is_string($type) && ! $type->optional) {
+                        continue;
+                    }
+
+                    if ( ! array_key_exists($key, $data)) {
+                        continue;
+                    }
+
+                    $value = $data[$key];
+
+                    if ( ! $this->validateField($key, $type, $value, $error, $context, true)) {
+                        return false;
+                    }
+                }
+            } catch (LogicException $e) {
+                $error = self::$production
+                    ? 'Invalid schema definition'
+                    : $e->getMessage();
+
+                return false;
+            }
+
+            return true;
+        }
+
+        /**
+         * @param null|string &$error
+         * @return null|array{required: array<string, string|Schema>, optional: array<string, string|Schema>, collection: array<string, true>}
+         */
+        protected function compile(?string &$error): ?array
+        {
             $optional = [];
             $required = [];
             $collection = [];
 
             /**
              * Classification
-             * 
+             *
              * @var string $key
              * @var mixed $type
              */
             foreach ($this->schema as $key => $type) {
                 if (is_object($type)) {
                     if ( ! $type instanceof Schema) {
-                        $error = "Invalid object [{$key}]: expected [Schema], got [" . get_class($type) . "]";
+                        $error = self::$production
+                            ? 'Invalid schema definition'
+                            : "Invalid object [{$key}]: expected [Schema], got [" . get_class($type) . "]";
 
-                        return false;
+                        return null;
                     }
 
-                    ($type->optional === true)
-                        ? $optional[$key] = $type
-                        : $required[$key] = $type;
-
+                    $required[$key] = $type;
+                    $optional[$key] = $type;
                     $collection[$key] = true;
 
                     continue;
@@ -127,56 +239,18 @@
                     continue;
                 }
 
-                $error = "Invalid type [{$key}]: expected [string|Schema], got [" . get_debug_type($type) . "]";
+                $error = self::$production
+                    ? 'Invalid schema definition'
+                    : "Invalid type [{$key}]: expected [string|Schema], got [" . get_debug_type($type) . "]";
 
-                return false;
+                return null;
             }
 
-            /**
-             * Validation: Unexpected fields
-             */
-            if ($diff = array_diff_key($data, $collection)) {
-                $error = "Unexpected fields: [" . implode(', ', array_keys($diff)) . "]";
-
-                return false;
-            }
-
-            /**
-             * Validation
-             */
-            try {
-                /** Required fields
-                 */
-                foreach ($required as $key => $type) {
-                    if ( ! array_key_exists($key, $data)) {
-                        $error = "Missing required: {$key}";
-
-                        return false;
-                    }
-
-                    if ( ! $this->validateField($key, $type, $data[$key], $error, $context, false)) {
-                        return false;
-                    }
-                }
-
-                /** Optional fields
-                 */
-                foreach ($optional as $key => $type) {
-                    if ( ! array_key_exists($key, $data)) {
-                        continue;
-                    }
-
-                    if ( ! $this->validateField($key, $type, $data[$key], $error, $context, true)) {
-                        return false;
-                    }
-                }
-            } catch (LogicException $e) {
-                $error = $e->getMessage();
-
-                return false;
-            }
-
-            return true;
+            return [
+                'required' => $required,
+                'optional' => $optional,
+                'collection' => $collection,
+            ];
         }
 
         /**
@@ -196,18 +270,23 @@
             string $context,
             bool $isOptional ): bool
         {
-            $path = ($context === '') ? $key : "{$context}.{$key}";
+            if ($isOptional && ! is_string($type) && ($value === null || $value === [])) {
+                return true;
+            }
 
             if (is_string($type)) {
                 if ($this->match($type, $value)) {
                     return true;
                 }
 
+                $path = ($context === '') ? $key : "{$context}.{$key}";
                 $label = $isOptional ? 'optional' : 'required';
                 $error = "Invalid {$label} [{$path}]: expected [{$type}], got [{$this->getType($value)}]";
 
                 return false;
             }
+
+            $path = ($context === '') ? $key : "{$context}.{$key}";
 
             if ($type->many) {
                 if ( ! is_array($value) || ! array_is_list($value)) {
@@ -320,6 +399,19 @@
          */
         protected function getType(mixed $value): string
         {
+            if (self::$production) {
+                if (is_null($value)) return 'null';
+                if (is_bool($value)) return 'bool';
+                if (is_string($value)) return 'string';
+                if (is_int($value)) return 'int';
+                if (is_float($value)) return 'float';
+                if (is_array($value)) return 'array';
+                if (is_object($value)) return 'object';
+                if (is_resource($value)) return 'resource';
+
+                return gettype($value);
+            }
+
             if (is_null($value)) return 'null';
             if (is_bool($value)) return $value ? 'true (bool)' : 'false (bool)';
             if (is_string($value)) return "'{$value}' (string)";
